@@ -132,6 +132,7 @@ void FwdModel::pass_in_coords( const ColumnVector& coords )
 #include "fwdmodel_asl_pvc.h"
 #include "fwdmodel_asl_satrecov.h"
 #include "fwdmodel_asl_quasar.h"
+#include "fwdmodel_asl_turboquasar.h"
 #endif /*__OXASL */
 
 #ifdef __DEVEL
@@ -217,9 +218,15 @@ FwdModel* FwdModel::NewFromName(const string& name, ArgsType& args)
 		return new SatrecovFwdModel(args);
 	}
 	else if (name == "quasar")
-      {
+  {
 	return new QuasarFwdModel(args);
-      }
+  }
+  
+  else if (name == "turboquasar")
+  {
+    return new TurboQuasarFwdModel(args);
+  }
+  
 #endif /* __OXASL */
 	
 #ifdef __DEVEL

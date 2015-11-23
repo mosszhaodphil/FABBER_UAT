@@ -38,6 +38,7 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
      //if (!singleti) {
        // Tissue bolus transit delay
        prior.means(tiss_index()+1) = 0.7;
+       //prior.means(tiss_index()+1) = 1;
        precisions(tiss_index()+1,tiss_index()+1) = 1;
        // }
     
@@ -63,7 +64,8 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
 	prior.means(aidx) = 0;
 	precisions(aidx,aidx) = 1e-12;
 
-	prior.means(aidx+1) = 0.1;
+	//prior.means(aidx+1) = 0.1;
+  prior.means(aidx+1) = 0.5;
 	precisions(aidx+1,aidx+1) = 1;
 	
       }
@@ -86,7 +88,8 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
     if (inferwm) {
       int wmi = wm_index();
       prior.means(wmi) = 0;
-      prior.means(wmi+1) = 1.2;
+      //prior.means(wmi+1) = 1.2;
+      prior.means(wmi+1) = 1;
       precisions(wmi,wmi) = 1e-12;
       precisions(wmi+1,wmi+1) = 1;
 
@@ -224,14 +227,14 @@ void QuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) 
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
-   for (int i=1;i<=NumParams();i++) {
-      if (params(i)<0) { paramcpy(i) = 0; }
-      }
+  for (int i=1;i<=NumParams();i++) {
+    if (params(i)<0) { paramcpy(i) = 0; }
+  }
   
      // sensible limits on transit times
-   if (infertiss) {
-  if (params(tiss_index()+1)>timax-0.2) { paramcpy(tiss_index()+1) = timax-0.2; }
-   }
+  if (infertiss) {
+    if (params(tiss_index()+1)>timax-0.2) { paramcpy(tiss_index()+1) = timax-0.2; }
+  }
   if (inferart) {
     if (params(art_index()+1)>timax-0.2) { paramcpy(art_index()+1) = timax-0.2; }
   }
@@ -1064,26 +1067,28 @@ ColumnVector kctissue(tis.Nrows());
 
   float R; 
 
-  for(int it=1; it<=tis.Nrows(); it++)
-    {
-      ti = tis(it);
-      float F = 2 * exp(-ti/T_1app);
+  for(int it=1; it<=tis.Nrows(); it++) {
+    ti = tis(it);
+    float F = 2 * exp(-ti/T_1app);
+    if (ti< deltll)
+      T_1b = T_1bin;
+    else
+      T_1b = T_1ll;
 
-      if (ti< deltll) T_1b = T_1bin;
-      else            T_1b = T_1ll;
-      R = 1/T_1app - 1/T_1b;
-
-      if(ti < delttiss)
-	{ kctissue(it) = 0;}
-      else if(ti >= delttiss && ti <= (delttiss + tau))
-	{
-	  kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) ;
-	}
-      else //(ti > delttiss + tau)
-	{
-	  kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  );
-	}
+    R = 1/T_1app - 1/T_1b;
+    if(ti < delttiss) {
+      kctissue(it) = 0;
     }
+    else if(ti >= delttiss && ti <= (delttiss + tau)) {
+      kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) );
+      //kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp( (-1) * R * ti );
+    }
+    else //(ti > delttiss + tau)
+    {
+      kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  );
+      //kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  ) * exp( (-1) * R * ti );
+    }
+  }
   return kctissue;
 }
 

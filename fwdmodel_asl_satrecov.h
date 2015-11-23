@@ -110,6 +110,7 @@ protected: // Constants
   int nphases;
   double t1;
   double slicedt;
+  int slice_shifting_factor;
 
   double FAnom;
   double LFA;
