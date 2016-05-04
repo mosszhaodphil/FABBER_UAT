@@ -28,50 +28,51 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
     Tracer_Plus tr("TurboQuasarFwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
-     SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
+    SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
 
     // Set priors
     // Tissue bolus perfusion
-     if (infertiss) {
-     prior.means(tiss_index()) = 0;
-     precisions(tiss_index(),tiss_index()) = 1e-12; 
+    if (infertiss) {
+          cout << "blablacar" << endl;
+      prior.means(tiss_index()) = 0;
+      precisions(tiss_index(),tiss_index()) = 1e-12; 
      
-     //if (!singleti) {
-       // Tissue bolus transit delay
-       prior.means(tiss_index()+1) = 0.7;
-       //prior.means(tiss_index()+1) = 1;
-       precisions(tiss_index()+1,tiss_index()+1) = 1;
-       // }
+      //if (!singleti) {
+      // Tissue bolus transit delay
+      prior.means(tiss_index()+1) = 0.7;
+      //prior.means(tiss_index()+1) = 0.6;
+      //prior.means(tiss_index()+1) = 1;
+      precisions(tiss_index()+1,tiss_index()+1) = 1;
+      //precisions(tiss_index()+1,tiss_index()+1) = 1e-12;
+      // }
     
-     }
+    }
 
     // Tissue bolus length
-     if (infertau && infertiss) {
-       prior.means(tau_index()) = seqtau;
-       //precisions(tau_index(),tau_index()) = 1;
-       precisions(tau_index(),tau_index()) = 1;
-     }
+    if (infertau && infertiss) {
+      prior.means(tau_index()) = seqtau;
+      //precisions(tau_index(),tau_index()) = 1;
+      precisions(tau_index(),tau_index()) = 1;
+    }
 
-     if (infertaub)
-       {
-   prior.means(taub_index()) = seqtau;
-   //precisions(taub_index(),taub_index()) = 1;
-   precisions(taub_index(),taub_index()) = 1;
-       }
+    if (infertaub) {
+      prior.means(taub_index()) = seqtau;
+      //precisions(taub_index(),taub_index()) = 1;
+      precisions(taub_index(),taub_index()) = 1;
+    }
 
     // Arterial Perfusion & bolus delay
 
-    if (inferart)
-      {
-  int aidx = art_index();
-  prior.means(aidx) = 0;
-  precisions(aidx,aidx) = 1e-12;
+    if (inferart) {
+      int aidx = art_index();
+      prior.means(aidx) = 0;
+      precisions(aidx,aidx) = 1e-12;
 
-  //prior.means(aidx+1) = 0.1;
-  prior.means(aidx+1) = 0.5;
-  precisions(aidx+1,aidx+1) = 1;
+      //prior.means(aidx+1) = 0.1;
+      prior.means(aidx+1) = 0.5;
+      precisions(aidx+1,aidx+1) = 1;
   
-      }
+    }
  
     // T1 & T1b
     if (infert1) {
@@ -98,35 +99,41 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
       precisions(wmi+1,wmi+1) = 1;
 
       if (infertau) {
-  prior.means(wmi+2) = seqtau;
-  //precisions(wmi+2,wmi+2) = 1;
-  precisions(wmi+2,wmi+2) = 1;
+        prior.means(wmi+2) = seqtau;
+        //precisions(wmi+2,wmi+2) = 1;
+        precisions(wmi+2,wmi+2) = 1;
       }
 
       if (infert1) {
-  prior.means(wmi+3) = t1wm;
-  precisions(wmi+3,wmi+3) = 100;
+        prior.means(wmi+3) = t1wm;
+        precisions(wmi+3,wmi+3) = 100;
       }
 
       if (usepve) {
-      //PV entries, the means get overwritten elsewhere if the right sort of prior is specified
-      // default is to allow both (NB artifically defies sum(pve)=1)
-      int pvi= pv_index();
-      prior.means(pvi) = 1; //GM is first
-      prior.means(pvi+1)= 1; //WM is second
+        //PV entries, the means get overwritten elsewhere if the right sort of prior is specified
+        // default is to allow both (NB artifically defies sum(pve)=1)
+        int pvi= pv_index();
+        prior.means(pvi) = 1; //GM is first
+        prior.means(pvi+1)= 1; //WM is second
 
-      // precisions are big as we treat PV parameters as correct
-      // NB they are not accesible from the data anyway
-      precisions(pvi,pvi) = 1e12;
-      precisions(pvi+1,pvi+1) = 1e12;
+        // precisions are big as we treat PV parameters as correct
+        // NB they are not accesible from the data anyway
+        precisions(pvi,pvi) = 1e12;
+        precisions(pvi+1,pvi+1) = 1e12;
       }
 
     }
 
+
     //dispersion parameters
     ColumnVector prvec(4);
     if (disptype=="none") {
-      prvec << 0 << 1e99 << 0 << 1e99;
+      /* Modified by Moss 20160430 
+      1e99 is too large to be inverted to a non-zero value
+      we use 1e12 here.
+      */
+      prvec << 0 << 1e12 << 0 << 1e12;
+      //prvec << 0 << 1e99 << 0 << 1e99;
     }
     if (disptype=="gvf") {
       prvec << 2 << 10 << 0.7 << 10;
@@ -135,7 +142,8 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
       prvec << 2 << 10 << -0.3 << 10;
     }
     if (disptype=="gauss") {
-      prvec << -1 << 10 << 0 << 1e99;
+      prvec << -1 << 10 << 0 << 1e12;
+      //prvec << -1 << 10 << 0 << 1e99;
     }
     prior.means(disp_index()) = prvec(1);//0.05;
     prior.means(disp_index()+1) = prvec(3);
@@ -146,28 +154,28 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
     int cidx=crush_index();
     if (inferart) {
     
-    if (artdir) {
-      prior.means(cidx) = 0.0;
-      precisions(cidx,cidx) = 1e12;  // artdir is multiplied by 1e6 to make its numerical diff work
-      prior.means(cidx+1) = 0.0;
-      precisions(cidx+1,cidx+1) = 1e12;
-      prior.means(cidx+2) = 1.6;
-      precisions(cidx+2,cidx+2) = 0.1;
-      //prior.means(cidx+1) = 0.8;
-      //precisions(cidx+1,cidx+1) = 10;
-    }
-    else {
-      prior.means(cidx) = 0.0;
-      precisions(cidx,cidx) = 1e-12;
-      prior.means(cidx+1) = 0.0;
-      precisions(cidx+1,cidx+1) = 1e-12;
-      prior.means(cidx+2) = 0.0;
-      precisions(cidx+2,cidx+2) = 1e-12;
-      prior.means(cidx+3) = 0.0;
-      precisions(cidx+3,cidx+3) = 1e-12;
-      //prior.means(cidx+4) = 0.0;
-      //precisions(cidx+4,cidx+4) = 1e-12;
-    }
+      if (artdir) {
+        prior.means(cidx) = 0.0;
+        precisions(cidx,cidx) = 1e12;  // artdir is multiplied by 1e6 to make its numerical diff work
+        prior.means(cidx+1) = 0.0;
+        precisions(cidx+1,cidx+1) = 1e12;
+        prior.means(cidx+2) = 1.6;
+        precisions(cidx+2,cidx+2) = 0.1;
+        //prior.means(cidx+1) = 0.8;
+        //precisions(cidx+1,cidx+1) = 10;
+      }
+      else {
+        prior.means(cidx) = 0.0;
+        precisions(cidx,cidx) = 1e-12;
+        prior.means(cidx+1) = 0.0;
+        precisions(cidx+1,cidx+1) = 1e-12;
+        prior.means(cidx+2) = 0.0;
+        precisions(cidx+2,cidx+2) = 1e-12;
+        prior.means(cidx+3) = 0.0;
+        precisions(cidx+3,cidx+3) = 1e-12;
+        //prior.means(cidx+4) = 0.0;
+        //precisions(cidx+4,cidx+4) = 1e-12;
+      }
     }
 
     // calibration parameters
@@ -186,37 +194,35 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
     // For parameters with uniformative prior chosoe more sensible inital posterior
     // Tissue perfusion
     if (infertiss) {
-    posterior.means(tiss_index()) = 10;
-    precisions(tiss_index(),tiss_index()) = 1;
+      posterior.means(tiss_index()) = 10;
+      precisions(tiss_index(),tiss_index()) = 1;
     }
     // Arterial perfusion
-    if (inferart)
-      {
-  posterior.means(art_index()) = 10;
-  precisions(art_index(),art_index()) = 1;
-      }
+    if (inferart) {
+      posterior.means(art_index()) = 10;
+      precisions(art_index(),art_index()) = 1;
+    }
 
-    if (inferwm)
-      {
-  posterior.means(wm_index()) = 10;
-  precisions(wm_index(),wm_index()) = 1;
-      }
+    if (inferwm) {
+      posterior.means(wm_index()) = 10;
+      precisions(wm_index(),wm_index()) = 1;
+    }
 
     //posterior.means(disp_index()) = 0.05;
 
     if (inferart) {
-    if (!artdir) {
-    posterior.means(cidx) = 10.0;
-    precisions(cidx,cidx) = 1;
-    posterior.means(cidx+1) = 10.0;
-    precisions(cidx+1,cidx+1) = 1;
-    posterior.means(cidx+2) = 10.0;
-    precisions(cidx+2,cidx+2) = 1;
-    posterior.means(cidx+3) = 10.0;
-    precisions(cidx+3,cidx+3) = 1;
-    //posterior.means(cidx+4) = 10.0;
-    //precisions(cidx+4,cidx+4) = 1;
-    }
+      if (!artdir) {
+        posterior.means(cidx) = 10.0;
+        precisions(cidx,cidx) = 1;
+        posterior.means(cidx+1) = 10.0;
+        precisions(cidx+1,cidx+1) = 1;
+        posterior.means(cidx+2) = 10.0;
+        precisions(cidx+2,cidx+2) = 1;
+        posterior.means(cidx+3) = 10.0;
+        precisions(cidx+3,cidx+3) = 1;
+        //posterior.means(cidx+4) = 10.0;
+        //precisions(cidx+4,cidx+4) = 1;
+      }
     }
     
     posterior.SetPrecisions(precisions);
@@ -457,6 +463,12 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
 
     // generate the kinetic curves
     if (disptype=="none") {
+      /* Added by Moss */
+      T_1b = 1.60;
+      T_1 = 1.3;
+      T_1app = T_1;
+      T_1ll = T_1b;
+
       if (infertiss) kctissue=kctissue_nodisp(thetis,delttiss,tau,T_1b,T_1app,deltll,T_1ll,n_bolus,delta_bolus);
     //cout << kctissue << endl;
       if (inferwm) kcwm=kctissue_nodisp(thetis,deltwm,tauwm,T_1b,T_1appwm,deltll,T_1ll,n_bolus,delta_bolus);
