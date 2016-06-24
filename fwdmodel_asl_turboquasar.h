@@ -81,6 +81,7 @@ protected: // Constants
   int n_bolus;
   double delta_bolus;
   int slice_shifting_factor;
+  int delta_ti_gap_factor;
   double t1;
   double t1b;
   double t1wm;

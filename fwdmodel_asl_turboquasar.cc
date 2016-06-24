@@ -306,9 +306,16 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
   }
 
   if (infertau && infertiss) { 
-    tauset=paramcpy(tau_index()); 
+    tauset=paramcpy(tau_index());
+    tauset = (dti * 0.5) * (tanh(tauset) + 1);
+    //cout << "tanh function used" << endl;
+    //tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
+    //cout << tauset << endl;
+    //getchar();
   }
-  else { tauset = seqtau;
+  else {
+    tauset = seqtau;
+    //tauset = (dti * 0.5) * (tanh(tauset) + 1);
   }
   
   if (infertaub) {
@@ -379,24 +386,24 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
   }
 
   if (inferart) {
-  if (artdir) {
-    bloodth = params(crush_index());
-    bloodth = 2*M_PI*tanh(bloodth*1e6); //convert to within -360->360 range (reasonably linear over the -180->180 range);
-    bloodphi = params(crush_index()+1);
-    bloodphi = 2*M_PI*tanh(bloodphi*1e6);
-    bloodbv = paramcpy(crush_index()+2);
-    //blooddir = params(crush_index());
-    //blooddir = 2*M_PI*tanh(blooddir*1e6); //convert to within -360->360 range (reasonably linear over the -180->180 range)
-    //crusheff = 1.0; //paramcpy(crush_index()+1);
-    //if(crusheff>1.0) crusheff=1.0;
-  }
-  else {
-    fbloodc1 = paramcpy(crush_index());
-    fbloodc2 = paramcpy(crush_index()+1);
-    fbloodc3 = paramcpy(crush_index()+2);
-    fbloodc4 = paramcpy(crush_index()+3);
-    //fbloodc5 = paramcpy(crush_index()+4);
-  }
+    if (artdir) {
+      bloodth = params(crush_index());
+      bloodth = 2*M_PI*tanh(bloodth*1e6); //convert to within -360->360 range (reasonably linear over the -180->180 range);
+      bloodphi = params(crush_index()+1);
+      bloodphi = 2*M_PI*tanh(bloodphi*1e6);
+      bloodbv = paramcpy(crush_index()+2);
+      //blooddir = params(crush_index());
+      //blooddir = 2*M_PI*tanh(blooddir*1e6); //convert to within -360->360 range (reasonably linear over the -180->180 range)
+      //crusheff = 1.0; //paramcpy(crush_index()+1);
+      //if(crusheff>1.0) crusheff=1.0;
+    }
+    else {
+      fbloodc1 = paramcpy(crush_index());
+      fbloodc2 = paramcpy(crush_index()+1);
+      fbloodc3 = paramcpy(crush_index()+2);
+      fbloodc4 = paramcpy(crush_index()+3);
+      //fbloodc5 = paramcpy(crush_index()+4);
+    }
   }
 
   //dispersion parameters
@@ -424,166 +431,164 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
     lambdagm = 0.98;
   }
 
-    // flip angle correction (only if calibon)
-    float FAtrue = FA;
-    float dg=0.023;
-    if (calibon) FAtrue = (g+dg)*FA;
+  // flip angle correction (only if calibon)
+  float FAtrue = FA;
+  float dg=0.023;
+  if (calibon) FAtrue = (g+dg)*FA;
 
-    //cout << T_1 << " " << FAtrue << " ";
+  //cout << T_1 << " " << FAtrue << " ";
 
-    float T_1app = 1/( 1/T_1 + 0.01/lambdagm - log(cos(FAtrue))/dti);
-    float T_1appwm = 1/( 1/T_1wm + 0.01/lambdawm - log(cos(FAtrue))/dti);
+  float T_1app = 1/( 1/T_1 + 0.01/lambdagm - log(cos(FAtrue))/dti);
+  float T_1appwm = 1/( 1/T_1wm + 0.01/lambdawm - log(cos(FAtrue))/dti);
 
-    // Need to be careful with T1 values
-    if (T_1b<0.1) T_1b=0.1;
-    if (T_1app<0.1) T_1app = 0.1;
-    if (fabs(T_1app - T_1b)<0.01) T_1app += 0.01;
-    if (T_1appwm<0.1) T_1appwm=0.1;
-    if (fabs(T_1appwm - T_1b)<0.01) T_1appwm += 0.01;
+  // Need to be careful with T1 values
+  if (T_1b<0.1) T_1b=0.1;
+  if (T_1app<0.1) T_1app = 0.1;
+  if (fabs(T_1app - T_1b)<0.01) T_1app += 0.01;
+  if (T_1appwm<0.1) T_1appwm=0.1;
+  if (fabs(T_1appwm - T_1b)<0.01) T_1appwm += 0.01;
 
-    // calculate the 'LL T1' of the blood
-    float T_1ll = 1/( 1/T_1b - log(cos(FAtrue))/dti);
-    float deltll = deltblood; //the arrival time of the blood within the readout region i.e. where it sees the LL pulses.
+  // calculate the 'LL T1' of the blood
+  float T_1ll = 1/( 1/T_1b - log(cos(FAtrue))/dti);
+  float deltll = deltblood; //the arrival time of the blood within the readout region i.e. where it sees the LL pulses.
 
-    float tau=tauset; //bolus length as seen by kintic curve
-    float taub=taubset; //bolus length of blood as seen in signal
-    float tauwm=tauwmset;
+  float tau=tauset; //bolus length as seen by kintic curve
+  float taub=taubset; //bolus length of blood as seen in signal
+  float tauwm=tauwmset;
     
 
-    //float F=0;
-    //float Fwm=0;
-    //float Fblood=0;
-    ColumnVector kctissue(tis.Nrows()); kctissue=0.0;
-    ColumnVector kcblood(tis.Nrows()); kcblood=0.0;
-    ColumnVector kcwm(tis.Nrows()); kcwm=0.0;
+  //float F=0;
+  //float Fwm=0;
+  //float Fblood=0;
+  ColumnVector kctissue(tis.Nrows()); kctissue=0.0;
+  ColumnVector kcblood(tis.Nrows()); kcblood=0.0;
+  ColumnVector kcwm(tis.Nrows()); kcwm=0.0;
 
-    ColumnVector thetis;
-    thetis=tis;
-    thetis += slicedt*coord_z; //account here for an increase in delay between slices
+  ColumnVector thetis;
+  thetis=tis;
+  thetis += slicedt*coord_z; //account here for an increase in delay between slices
 
-    // generate the kinetic curves
-    if (disptype=="none") {
-      /* Added by Moss */
-      T_1b = 1.60;
-      T_1 = 1.3;
-      T_1app = T_1;
-      T_1ll = T_1b;
-
-      if (infertiss) kctissue=kctissue_nodisp(thetis,delttiss,tau,T_1b,T_1app,deltll,T_1ll,n_bolus,delta_bolus);
-    //cout << kctissue << endl;
-      if (inferwm) kcwm=kctissue_nodisp(thetis,deltwm,tauwm,T_1b,T_1appwm,deltll,T_1ll,n_bolus,delta_bolus);
-      if (inferart) kcblood=kcblood_nodisp(thetis,deltblood,taub,T_1b,deltll,T_1ll,n_bolus,delta_bolus);
-    //cout << kcblood << endl;
-    }
-    else if (disptype=="gamma") {
-      if (infertiss) kctissue=kctissue_gammadisp(thetis,delttiss,tau,T_1b,T_1app,s,p,deltll,T_1ll);
-    //cout << kctissue << endl;
-      if (inferwm) kcwm=kctissue_gammadisp(thetis,deltwm,tauwm,T_1b,T_1appwm,s,p,deltll,T_1ll);
-      if (inferart) kcblood=kcblood_gammadisp(thetis,deltblood,taub,T_1b,s,p,deltll,T_1ll);
-    //cout << kcblood << endl;
-    }
-    else if (disptype=="gvf") {
-      if (infertiss) kctissue=kctissue_gvf(thetis,delttiss,tau,T_1b,T_1app,s,p,deltll,T_1ll);
-    //cout << kctissue << endl;
-      if (inferwm) kcwm=kctissue_gvf(thetis,deltwm,tauwm,T_1b,T_1appwm,s,p,deltll,T_1ll);
-      if (inferart) kcblood=kcblood_gvf(thetis,deltblood,taub,T_1b,s,p,deltll,T_1ll);
-    //cout << kcblood << endl;
-    }
-   else if (disptype=="gauss") {
-     if (infertiss) kctissue=kctissue_gaussdisp(thetis,delttiss,tau,T_1b,T_1app,s,s,deltll,T_1ll);
-    //cout << kctissue << endl;
-     if (inferwm) kcwm=kctissue_gaussdisp(thetis,deltwm,tauwm,T_1b,T_1appwm,s,s,deltll,T_1ll);
-     if (inferart) kcblood=kcblood_gaussdisp(thetis,deltblood,tau,T_1b,s,s,deltll,T_1ll);
-    //cout << kcblood << endl;
-    }
-    else {
-      throw Exception("Unrecognised dispersion model ");
-    }
-
-    /* KC debugging
+  // generate the kinetic curves
+  if (disptype=="none") {
+    /* Added by Moss */
+    T_1b = 1.60;
     T_1 = 1.3;
-    T_1app = 1/( 1/T_1 + 0.01/lambdagm);
-    cout << T_1app << "  " << endl;
-    T_1b = 1.6; tau=1; delttiss=0.7; s=100, p=0.05;
-    kctissue=kctissue_nodisp(tis,delttiss,tau,T_1b,T_1app);
-    cout << kctissue.t() << endl;
-    kctissue=kctissue_gammadisp(tis,delttiss,tau,T_1b,T_1app,s,p);
-    cout << kctissue.t() << endl;
-    kctissue=kctissue_gvf(tis,delttiss,T_1b,T_1app,s,p);
-    cout << kctissue.t() << endl;
+    T_1app = T_1;
+    T_1ll = T_1b;
 
-    assert(1==0);
-    */
+    if (infertiss) kctissue=kctissue_nodisp(thetis,delttiss,tau,T_1b,T_1app,deltll,T_1ll,n_bolus,delta_bolus);
+  //cout << kctissue << endl;
+    if (inferwm) kcwm=kctissue_nodisp(thetis,deltwm,tauwm,T_1b,T_1appwm,deltll,T_1ll,n_bolus,delta_bolus);
+    if (inferart) kcblood=kcblood_nodisp(thetis,deltblood,taub,T_1b,deltll,T_1ll,n_bolus,delta_bolus);
+  //cout << kcblood << endl;
+  }
+  else if (disptype=="gamma") {
+    if (infertiss) kctissue=kctissue_gammadisp(thetis,delttiss,tau,T_1b,T_1app,s,p,deltll,T_1ll);
+  //cout << kctissue << endl;
+    if (inferwm) kcwm=kctissue_gammadisp(thetis,deltwm,tauwm,T_1b,T_1appwm,s,p,deltll,T_1ll);
+    if (inferart) kcblood=kcblood_gammadisp(thetis,deltblood,taub,T_1b,s,p,deltll,T_1ll);
+  //cout << kcblood << endl;
+  }
+  else if (disptype=="gvf") {
+    if (infertiss) kctissue=kctissue_gvf(thetis,delttiss,tau,T_1b,T_1app,s,p,deltll,T_1ll);
+  //cout << kctissue << endl;
+    if (inferwm) kcwm=kctissue_gvf(thetis,deltwm,tauwm,T_1b,T_1appwm,s,p,deltll,T_1ll);
+    if (inferart) kcblood=kcblood_gvf(thetis,deltblood,taub,T_1b,s,p,deltll,T_1ll);
+  //cout << kcblood << endl;
+  }
+  else if (disptype=="gauss") {
+   if (infertiss) kctissue=kctissue_gaussdisp(thetis,delttiss,tau,T_1b,T_1app,s,s,deltll,T_1ll);
+  //cout << kctissue << endl;
+   if (inferwm) kcwm=kctissue_gaussdisp(thetis,deltwm,tauwm,T_1b,T_1appwm,s,s,deltll,T_1ll);
+   if (inferart) kcblood=kcblood_gaussdisp(thetis,deltblood,tau,T_1b,s,s,deltll,T_1ll);
+  //cout << kcblood << endl;
+  }
+  else {
+    throw Exception("Unrecognised dispersion model ");
+  }
 
-    // Nan catching
-    bool cont=true;
-    int it=1;
-    while (cont) {
-      if (isnan(kctissue(it)) | isinf(kctissue(it))) { 
-      
+  /* KC debugging
+  T_1 = 1.3;
+  T_1app = 1/( 1/T_1 + 0.01/lambdagm);
+  cout << T_1app << "  " << endl;
+  T_1b = 1.6; tau=1; delttiss=0.7; s=100, p=0.05;
+  kctissue=kctissue_nodisp(tis,delttiss,tau,T_1b,T_1app);
+  cout << kctissue.t() << endl;
+  kctissue=kctissue_gammadisp(tis,delttiss,tau,T_1b,T_1app,s,p);
+  cout << kctissue.t() << endl;
+  kctissue=kctissue_gvf(tis,delttiss,T_1b,T_1app,s,p);
+  cout << kctissue.t() << endl;
+
+  assert(1==0);
+  */
+
+  // Nan catching
+  bool cont=true;
+  int it=1;
+  while (cont) {
+    if (isnan(kctissue(it)) | isinf(kctissue(it))) { 
+    
       LOG << "Warning NaN in kctissue" << endl;
       LOG << "params: " << params.t() << endl;
       LOG << "kctissue: " << kctissue.t() << endl;
       cont =false;
       kctissue=0.0;
- }
+    }
     it++;
     if (it>kctissue.Nrows()) cont=false;
   }
 
-    cont=true;
-    it=1;
-    while (cont) {
-      if (isnan(kcblood(it)) | isinf(kcblood(it))) { 
-      
+  cont=true;
+  it=1;
+  while (cont) {
+    if (isnan(kcblood(it)) | isinf(kcblood(it))) { 
+    
       LOG << "Warning NaN in kcblood" << endl;
       LOG << "params: " << params.t() << endl;
       LOG << "kcblood: " << kcblood.t() << endl;
       cont =false;
       kcblood=0.0;
- }
+    }
     it++;
     if (it>kcblood.Nrows()) cont=false;
   }
 
-    // assemble the result
-    int nti=tis.Nrows();
-    int nphases=6;
-    if (onephase) nphases=1;
-    result.ReSize(tis.Nrows()*repeats*nphases);
+  // assemble the result
+  int nti=tis.Nrows();
+  int nphases=6;
+  if (onephase) nphases=1;
+  result.ReSize(tis.Nrows()*repeats*nphases);
 
 
-    ColumnVector artweight(crushdir.Nrows());
-    if (artdir) {
-      //sot out the arterial weightings for all the crushed images
-      artweight=1.0;
-      //float angle;
-      ColumnVector artdir(3);
-      artdir(1) = sin(bloodphi)*cos(bloodth);
-      artdir(2) = sin(bloodphi)*sin(bloodth);
-      artdir(3) = cos(bloodphi);
+  ColumnVector artweight(crushdir.Nrows());
+  if (artdir) {
+    //sot out the arterial weightings for all the crushed images
+    artweight=1.0;
+    //float angle;
+    ColumnVector artdir(3);
+    artdir(1) = sin(bloodphi)*cos(bloodth);
+    artdir(2) = sin(bloodphi)*sin(bloodth);
+    artdir(3) = cos(bloodphi);
 
-      for (int i=1; i<=crushdir.Nrows(); i++) {
-  //artweight(i) = 1.0 - std::max(DotProduct(artdir,crushdir.Row(i)),0.0); # original linear approximation
-  //artweight(i) = exp( -bloodbv * std::max(DotProduct(artdir,crushdir.Row(i)),0.0) ); # exponential based on simple diffusion expt
-  artweight(i) = Sinc( 2 * bloodbv * std::max(DotProduct(artdir,crushdir.Row(i)),0.0) ); // based on laminar flow profile c.f. perfusion tensor imaging
+    for (int i=1; i<=crushdir.Nrows(); i++) {
+      //artweight(i) = 1.0 - std::max(DotProduct(artdir,crushdir.Row(i)),0.0); # original linear approximation
+      //artweight(i) = exp( -bloodbv * std::max(DotProduct(artdir,crushdir.Row(i)),0.0) ); # exponential based on simple diffusion expt
+      artweight(i) = Sinc( 2 * bloodbv * std::max(DotProduct(artdir,crushdir.Row(i)),0.0) ); // based on laminar flow profile c.f. perfusion tensor imaging
 
-  //angle = fabs(crushdir(i) - blooddir);
-  //if (angle<M_PI/2) {
-  //  artweight(i) = crusheff*sin(angle) + 1.0 - crusheff;
-  //}
-      }
+      //angle = fabs(crushdir(i) - blooddir);
+      //if (angle<M_PI/2) {
+      //  artweight(i) = crusheff*sin(angle) + 1.0 - crusheff;
+      //}
     }
+  }
 
 
-    for(int it=1; it<=tis.Nrows(); it++)
-      {
+  for(int it=1; it<=tis.Nrows(); it++) {
 
 
-  /* output */
-  // loop over the repeats
-  for (int rpt=1; rpt<=repeats; rpt++)
-    {
+    /* output */
+    // loop over the repeats
+    for (int rpt=1; rpt<=repeats; rpt++) {
 
 
       // go through all the phases
@@ -602,20 +607,17 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
         result( 5*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fblood*kcblood(it) + pv_wm*fwm*kcwm(it);
         //result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue + fblood*kcblood + pv_wm*fwm*kcwm;
       }
-      else 
-        {
-    result( tiref )                 = pv_gm*ftiss*kctissue(it) + fbloodc1*kcblood(it) + pv_wm*fwm*kcwm(it);
-    result( nti*repeats + tiref )   = pv_gm*ftiss*kctissue(it) + fbloodc2*kcblood(it) + pv_wm*fwm*kcwm(it);
-    result( 2*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fblood*kcblood(it) + pv_wm*fwm*kcwm(it);
-    result( 3*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fbloodc3*kcblood(it) + pv_wm*fwm*kcwm(it);
-    result( 4*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fbloodc4*kcblood(it) + pv_wm*fwm*kcwm(it);
-    result( 5*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fblood*kcblood(it) + pv_wm*fwm*kcwm(it);
-    //result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue + fblood*kcblood + pv_wm*fwm*kcwm;
-        }
-    }
-
- 
+      else  {
+        result( tiref )                 = pv_gm*ftiss*kctissue(it) + fbloodc1*kcblood(it) + pv_wm*fwm*kcwm(it);
+        result( nti*repeats + tiref )   = pv_gm*ftiss*kctissue(it) + fbloodc2*kcblood(it) + pv_wm*fwm*kcwm(it);
+        result( 2*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fblood*kcblood(it) + pv_wm*fwm*kcwm(it);
+        result( 3*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fbloodc3*kcblood(it) + pv_wm*fwm*kcwm(it);
+        result( 4*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fbloodc4*kcblood(it) + pv_wm*fwm*kcwm(it);
+        result( 5*nti*repeats + tiref ) = pv_gm*ftiss*kctissue(it) + fblood*kcblood(it) + pv_wm*fwm*kcwm(it);
+        //result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue + fblood*kcblood + pv_wm*fwm*kcwm;
       }
+    }
+  }
     //cout << result.t();
 
     
@@ -642,9 +644,13 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       t1wm = convertTo<double>(args.ReadWithDefault("t1wm","1.1"));
       lambda =convertTo<double>(args.ReadWithDefault("lambda","0.9")); //NOTE that this parameter is not used!!
       n_bolus = convertTo<int>(args.Read("n_bolus")); // total number of boluses in turbo QUASAR
-      delta_bolus = convertTo<double>(args.ReadWithDefault("delta_bolus", "0.6")); // time duration between each successive bolus
+      //delta_bolus = convertTo<double>(args.ReadWithDefault("delta_bolus", "0.6")); // time duration between each successive bolus
       slice_shifting_factor = convertTo<int>(args.ReadWithDefault("slice_shift", "1")); // slice shifting factor, default is 1 meaning no increaing sampling rate
+      delta_ti_gap_factor = convertTo<int>(args.ReadWithDefault("bolus_skip", "1")); // Number of boluses to skip, default is 1 meaning one bolus duration is skipped between each successive bolus
 
+      // Warning message
+      cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded values!!!!!" << endl;
+      
       infertau = args.ReadBool("infertau"); // infer on bolus length?
       infert1 = args.ReadBool("infert1"); //infer on T1 values?
       inferart = args.ReadBool("inferart"); //infer on arterial compartment?
@@ -724,6 +730,8 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       timax = tis.Maximum(); //dtermine the final TI
       //determine the TI interval (assume it is even throughout)
       dti = (tis(2)-tis(1)) * slice_shifting_factor;
+      // determine delta bolus (time between each successive bolus)
+      delta_bolus = delta_ti_gap_factor * dti;
 
       float fadeg = convertTo<double>(args.ReadWithDefault("fa","30"));
       FA = fadeg * M_PI/180;
@@ -1152,6 +1160,12 @@ ColumnVector kctissue(tis.Nrows());
   float bolus_time_passed = 0; // total time passed since the first bolus arrived (excluding arrival time)
   float current_arrival_time = 0; // total time since TI1 (including arrival time)
 
+  //float k;
+
+  //tau = ti * (1 / M_PI * atan(k) + 0.5);
+
+
+
   // now start model fitting
   while(n_bolus_arrived < n_bolus_total) {
 
@@ -1160,6 +1174,8 @@ ColumnVector kctissue(tis.Nrows());
     current_arrival_time = bolus_time_passed + delttiss;
 
     for(int it=1; it<=tis.Nrows(); it++) {
+
+      //cout << tau << "hahaha" << endl;
 
       ti = tis(it);
       float F = 2 * exp( -(ti - bolus_time_passed) / T_1app);
@@ -1175,16 +1191,27 @@ ColumnVector kctissue(tis.Nrows());
         kctissue(it) = kctissue(it) + 0;
       }
 
-      else if(ti >= current_arrival_time && ti <= (current_arrival_time + tau)) {
+      else if(ti >= current_arrival_time && ti <= (current_arrival_time + tau )) {
         kctissue(it) = kctissue(it) + F/R * ( (exp(R * (ti - bolus_time_passed) ) - exp(R * delttiss)) );
         //kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp( (-1) * R * ti );
       }
 
       else //(ti > delttiss + tau)
       {
-        kctissue(it) = kctissue(it) + F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  );
+        kctissue(it) = kctissue(it) + F/R * ( (exp(R*(delttiss + tau )) - exp(R*delttiss))  );
         //kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  ) * exp( (-1) * R * ti );
       }
+
+      // Bolus duration must be less than the duration between each labelling pulse
+      /*
+      if (tau > dti) {
+        //cout << dti << endl;
+        // Added by Moss
+        // This ensures that tau is between 0 and 0.6
+        //tau = (3 / 10) * (tanh(tau) + 1);
+        tau = (dti * 0.5) * (tanh(tau) + 1);
+      }
+      */
 
     }
 
