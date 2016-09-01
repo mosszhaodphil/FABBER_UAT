@@ -74,6 +74,8 @@ protected: // Constants
   // vector indices for the parameters to expereicne ARD
   vector<int> ard_index;
 
+  // simulation mode
+  bool simulation;
 
   // scan parameters
   double seqtau; //bolus length as set by the sequence

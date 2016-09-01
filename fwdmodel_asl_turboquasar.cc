@@ -470,11 +470,13 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
 
   // generate the kinetic curves
   if (disptype=="none") {
-    /* Added by Moss */
-    T_1b = 1.60;
-    T_1 = 1.3;
-    T_1app = T_1;
-    T_1ll = T_1b;
+    /* Added by Moss */ 
+    if (simulation) {
+      T_1b = 1.60;
+      T_1 = 1.3;
+      T_1app = T_1;
+      T_1ll = T_1b;
+    }
 
     if (infertiss) kctissue=kctissue_nodisp(thetis,delttiss,tau,T_1b,T_1app,deltll,T_1ll,n_bolus,delta_bolus);
   //cout << kctissue << endl;
@@ -634,6 +636,11 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
     
     if (scanParams == "cmdline")
     {
+
+      // simulation mode, put everything in fixed manner
+      simulation = false;
+      simulation = args.ReadBool("simulation_mode");
+
       // specify command line parameters here
       //dispersion model
       disptype=args.ReadWithDefault("disp","gamma");
