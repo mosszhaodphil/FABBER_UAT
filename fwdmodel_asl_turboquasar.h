@@ -120,13 +120,17 @@ protected: // Constants
   //ColumnVector crushdir;
   Matrix crushdir;
 
+  // Column vector to save the order of each bolus
+  // 1 means bolus and 0 means skip current bolus
+  ColumnVector bolus_order;
+
   //kinetic curve functions
-  ColumnVector kcblood_nodisp(const ColumnVector& tis, float deltblood, float taub, float T_1b, float deltll, float T_1ll,int n_bolus_total, float delta_bolus) const;
+  ColumnVector kcblood_nodisp(const ColumnVector& tis, float deltblood, float taub, float T_1b, float deltll, float T_1ll,int n_bolus_total, float delta_bolus, const ColumnVector& bolus_order) const;
   ColumnVector kcblood_gammadisp(const ColumnVector& tis, float deltblood, float taub, float T_1b, float s, float p, float deltll,float T_1ll) const;
   ColumnVector kcblood_gvf(const ColumnVector& tis, float deltblood, float taub, float T_1b, float s, float p, float deltll,float T_1ll) const;
   ColumnVector kcblood_gaussdisp(const ColumnVector& tis, float deltblood, float taub, float T_1b, float sig1, float sig2, float deltll,float T_1ll) const;
   //Tissue
-  ColumnVector kctissue_nodisp(const ColumnVector& tis, float delttiss, float tau, float T1_b, float T1_app, float deltll,float T_1ll,int n_bolus_total, float delta_bolus) const;
+  ColumnVector kctissue_nodisp(const ColumnVector& tis, float delttiss, float tau, float T1_b, float T1_app, float deltll,float T_1ll,int n_bolus_total, float delta_bolus, const ColumnVector& bolus_order) const;
  ColumnVector kctissue_gammadisp(const ColumnVector& tis, float delttiss, float tau, float T1_b, float T1_app, float s, float p, float deltll,float T_1ll) const;
  ColumnVector kctissue_gvf(const ColumnVector& tis, float delttiss, float tau, float T1_b, float T1_app, float s, float p, float deltll,float T_1ll) const;
   ColumnVector kctissue_gaussdisp(const ColumnVector& tis, float delttiss, float tau, float T_1b, float T_1app, float sig1, float sig2, float deltll,float T_1ll) const;

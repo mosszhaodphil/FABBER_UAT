@@ -307,7 +307,8 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
 
   if (infertau && infertiss) { 
     tauset=paramcpy(tau_index());
-    tauset = (dti * 0.5) * (tanh(tauset) + 1);
+    //tauset = (dti * 0.5) * (tanh(tauset) + 1);
+    tauset = 0.1 * tanh(tauset) + dti - 0.1;
     //cout << "tanh function used" << endl;
     //tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
     //cout << tauset << endl;
@@ -478,10 +479,10 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
       T_1ll = T_1b;
     }
 
-    if (infertiss) kctissue=kctissue_nodisp(thetis,delttiss,tau,T_1b,T_1app,deltll,T_1ll,n_bolus,delta_bolus);
+    if (infertiss) kctissue=kctissue_nodisp(thetis,delttiss,tau,T_1b,T_1app,deltll,T_1ll,n_bolus,delta_bolus, bolus_order);
   //cout << kctissue << endl;
-    if (inferwm) kcwm=kctissue_nodisp(thetis,deltwm,tauwm,T_1b,T_1appwm,deltll,T_1ll,n_bolus,delta_bolus);
-    if (inferart) kcblood=kcblood_nodisp(thetis,deltblood,taub,T_1b,deltll,T_1ll,n_bolus,delta_bolus);
+    if (inferwm) kcwm=kctissue_nodisp(thetis,deltwm,tauwm,T_1b,T_1appwm,deltll,T_1ll,n_bolus,delta_bolus, bolus_order);
+    if (inferart) kcblood=kcblood_nodisp(thetis,deltblood,taub,T_1b,deltll,T_1ll,n_bolus,delta_bolus, bolus_order);
   //cout << kcblood << endl;
   }
   else if (disptype=="gamma") {
@@ -650,10 +651,10 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       t1b = convertTo<double>(args.ReadWithDefault("t1b","1.65"));
       t1wm = convertTo<double>(args.ReadWithDefault("t1wm","1.1"));
       lambda =convertTo<double>(args.ReadWithDefault("lambda","0.9")); //NOTE that this parameter is not used!!
-      n_bolus = convertTo<int>(args.Read("n_bolus")); // total number of boluses in turbo QUASAR
+      //n_bolus = convertTo<int>(args.Read("n_bolus")); // total number of boluses in turbo QUASAR
       //delta_bolus = convertTo<double>(args.ReadWithDefault("delta_bolus", "0.6")); // time duration between each successive bolus
       slice_shifting_factor = convertTo<int>(args.ReadWithDefault("slice_shift", "1")); // slice shifting factor, default is 1 meaning no increaing sampling rate
-      delta_ti_gap_factor = convertTo<int>(args.ReadWithDefault("bolus_skip", "1")); // Number of boluses to skip, default is 1 meaning one bolus duration is skipped between each successive bolus
+      //delta_ti_gap_factor = convertTo<int>(args.ReadWithDefault("bolus_skip", "1")); // Number of boluses to skip, default is 1 meaning one bolus duration is skipped between each successive bolus
 
       // Warning message
       cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded values!!!!!" << endl;
@@ -722,8 +723,8 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       tis.ReSize(1); //will add extra values onto end as needed
       tis(1) = atof(args.Read("ti1").c_str());
       
-      while (true) //get the rest of the tis
-  {
+      //get the rest of the tis
+      while (true) {
     int N = tis.Nrows()+1;
     string tiString = args.ReadWithDefault("ti"+stringify(N), "stop!");
     if (tiString == "stop!") break; //we have run out of tis
@@ -732,32 +733,56 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
     ColumnVector tmp(1);
     tmp = convertTo<double>(tiString);
     tis &= tmp; //vertical concatenation
+    }
 
-  }
-      timax = tis.Maximum(); //dtermine the final TI
-      //determine the TI interval (assume it is even throughout)
-      dti = (tis(2)-tis(1)) * slice_shifting_factor;
-      // determine delta bolus (time between each successive bolus)
-      delta_bolus = delta_ti_gap_factor * dti;
+    timax = tis.Maximum(); //dtermine the final TI
+    //determine the TI interval (assume it is even throughout)
+    dti = (tis(2)-tis(1)) * slice_shifting_factor;
 
-      float fadeg = convertTo<double>(args.ReadWithDefault("fa","30"));
-      FA = fadeg * M_PI/180;
-      
-      //setup crusher directions
-      //crushdir.ReSize(4);
-      //crushdir << 45.0 << -45.0 << 135.0 << -135.0; //in degees
-      //crushdir = crushdir * M_PI/180;
-      //cout << crushdir << endl;
-      crushdir.ReSize(4,3);
-      crushdir << 1 << 1 << 1
-       << -1 << 1 << 1
-       << 1 << -1 << 1
-       << -1 << -1 << 1;
+    // Bolus duration parameters
+    // determine delta bolus (time between each successive bolus)
+    //delta_bolus = delta_ti_gap_factor * dti;
+    delta_bolus = dti;
+    // Deal with bolus duration vectors (which one is labelled, which one is skipped)
+    // Technique similar with TIs
+    bolus_order.ReSize(1);
+    bolus_order(1) = atof(args.Read("bolus_1").c_str()); // Get the first bolus
+    // Get the rest of bolus
+    while (true) {
+      int next_bolus_index = bolus_order.Nrows() + 1;
+      string next_bolus_string = args.ReadWithDefault("bolus_" + stringify(next_bolus_index), "stop!");
 
-      crushdir /= sqrt(3); //make unit vectors;
+      // Reached end of bolus order, then stop reading
+      if (next_bolus_string == "stop!") {
+        break;
+      }
 
-      
-      singleti = false; //normally we do multi TI ASL
+      // Add the new string to end of bolus_order list
+      ColumnVector tmp(1);
+      tmp = convertTo<int>(next_bolus_string);
+      bolus_order &= tmp;
+    }
+    n_bolus = bolus_order.Nrows();
+
+
+    float fadeg = convertTo<double>(args.ReadWithDefault("fa","30"));
+    FA = fadeg * M_PI/180;
+    
+    //setup crusher directions
+    //crushdir.ReSize(4);
+    //crushdir << 45.0 << -45.0 << 135.0 << -135.0; //in degees
+    //crushdir = crushdir * M_PI/180;
+    //cout << crushdir << endl;
+    crushdir.ReSize(4,3);
+    crushdir << 1 << 1 << 1
+     << -1 << 1 << 1
+     << 1 << -1 << 1
+     << -1 << -1 << 1;
+
+    crushdir /= sqrt(3); //make unit vectors;
+
+    
+    singleti = false; //normally we do multi TI ASL
       /*if (tis.Nrows()==1) {
   //only one TI therefore only infer on CBF and ignore other inference options
   LOG << "--Single inversion time mode--" << endl;
@@ -958,7 +983,7 @@ void TurboQuasarFwdModel::UpdateARD(
 // --- Kinetic curve functions ---
 //Arterial
 
-ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float deltblood, float taub, float T_1bin, float deltll,float T_1ll,int n_bolus,float delta_bolus) const {
+ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float deltblood, float taub, float T_1bin, float deltll,float T_1ll,int n_bolus,float delta_bolus, const ColumnVector& bolus_order) const {
   Tracer_Plus tr("TurboQuasarFwdModel:kcblood_nodisp");
   ColumnVector kcblood(tis.Nrows());
   kcblood=0.0;
@@ -971,12 +996,15 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float 
   float current_value;
 
   int n_bolus_arrived = 0;
+  float current_bolus_duration = 0;
 
   while(n_bolus_arrived < n_bolus) {
 
     bolus_time_passed = n_bolus_arrived * delta_bolus;
 
     current_arrival_time = bolus_time_passed + deltblood;
+
+    current_bolus_duration = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from one
 
     for(int it = 1; it <= tis.Nrows(); it++) {
 
@@ -997,15 +1025,15 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float 
 
       }
 
-      else if (ti > current_arrival_time && ti <= (current_arrival_time + taub)) {
+      else if (ti > current_arrival_time && ti <= (current_arrival_time + current_bolus_duration)) {
 
         kcblood(it) = kcblood(it) + 2 * exp( -(ti - bolus_time_passed) / T_1b);
       }
 
       else {
         // artifical lead out period for taub model fitting
-        current_value = 2 * exp(-(deltblood + taub) / T_1b);
-        current_value *= (0.98 * exp( -( (ti - bolus_time_passed) - deltblood - taub)/0.05) + 0.02 * (1-( (ti - bolus_time_passed) - deltblood - taub)/5));
+        current_value = 2 * exp(-(deltblood + current_bolus_duration) / T_1b);
+        current_value *= (0.98 * exp( -( (ti - bolus_time_passed) - deltblood - current_bolus_duration)/0.05) + 0.02 * (1-( (ti - bolus_time_passed) - deltblood - current_bolus_duration)/5));
         if(current_value >= 0) {
           kcblood(it) = kcblood(it) + current_value;
         }
@@ -1147,7 +1175,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector& tis, flo
 }
 
 //Tissue
-ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector& tis, float delttiss, float tau, float T_1bin, float T_1app, float deltll,float T_1ll,int n_bolus_total,float delta_bolus) const {
+ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector& tis, float delttiss, float tau, float T_1bin, float T_1app, float deltll,float T_1ll,int n_bolus_total,float delta_bolus, const ColumnVector& bolus_order) const {
   Tracer_Plus tr("TurboQuasarFwdModel::kctissue_nodisp");
 ColumnVector kctissue(tis.Nrows());
  kctissue=0.0;
@@ -1166,6 +1194,7 @@ ColumnVector kctissue(tis.Nrows());
   int n_bolus_arrived = 0; // bolus arrived (passed) or processed
   float bolus_time_passed = 0; // total time passed since the first bolus arrived (excluding arrival time)
   float current_arrival_time = 0; // total time since TI1 (including arrival time)
+  float current_bolus_duration = 0; // Current bolus duration
 
   //float k;
 
@@ -1179,6 +1208,8 @@ ColumnVector kctissue(tis.Nrows());
     bolus_time_passed = n_bolus_arrived * delta_bolus;
 
     current_arrival_time = bolus_time_passed + delttiss;
+
+    current_bolus_duration = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
     for(int it=1; it<=tis.Nrows(); it++) {
 
@@ -1198,14 +1229,14 @@ ColumnVector kctissue(tis.Nrows());
         kctissue(it) = kctissue(it) + 0;
       }
 
-      else if(ti >= current_arrival_time && ti <= (current_arrival_time + tau )) {
+      else if(ti >= current_arrival_time && ti <= (current_arrival_time + current_bolus_duration )) {
         kctissue(it) = kctissue(it) + F/R * ( (exp(R * (ti - bolus_time_passed) ) - exp(R * delttiss)) );
         //kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp( (-1) * R * ti );
       }
 
       else //(ti > delttiss + tau)
       {
-        kctissue(it) = kctissue(it) + F/R * ( (exp(R*(delttiss + tau )) - exp(R*delttiss))  );
+        kctissue(it) = kctissue(it) + F/R * ( (exp(R*(delttiss + current_bolus_duration )) - exp(R*delttiss))  );
         //kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  ) * exp( (-1) * R * ti );
       }
 
