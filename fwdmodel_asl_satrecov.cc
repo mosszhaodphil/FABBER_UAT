@@ -126,73 +126,71 @@ void SatrecovFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
-   for (int i=1;i<=NumParams();i++) {
+
+  for (int i=1;i<=NumParams();i++) {
       if (params(i)<0) { paramcpy(i) = 0; }
-      }
+  }
   
-   float M0t;
-   float T1t;
-   float A;
-   float FA;
-   float lFA;
-   float g;
+  float M0t;
+  float T1t;
+  float A;
+  float FA;
+  float lFA;
+  float g;
 
-   M0t = paramcpy(1);
-   T1t = paramcpy(2);
-   A = paramcpy(3);
+  M0t = paramcpy(1);
+  T1t = paramcpy(2);
+  A = paramcpy(3);
 
-   if (LFAon) {
-     g = paramcpy(4);
-   }
-   else g=1.0;
+  if (LFAon) {
+    g = paramcpy(4);
+  }
+  else g=1.0;
 
    //if (g<0.5) g=0.5;
    //if (g>1.5) g=1.5;
 
-   FA =(g+dg)* FAnom;
-   lFA = (g+dg)* LFA;
+  FA =(g+dg)* FAnom;
+  lFA = (g+dg)* LFA;
 
-   float T1tp = T1t;
-   float M0tp = M0t;
+  float T1tp = T1t;
+  float M0tp = M0t;
 
-   if (looklocker) {
-     T1tp = 1/( 1/T1t - log(cos(FA))/dti );
-     M0tp = M0t*(1 - exp(-dti/T1t) )/(1 - cos(FA)*exp(-dti/T1t));
-     // note that we do not have sin(FA) here - we actually estiamte the M0 at the flip angle used for the readout!
-   }
+  if (looklocker) {
+    T1tp = 1/( 1/T1t - log(cos(FA))/dti );
+    M0tp = M0t*(1 - exp(-dti/T1t) )/(1 - cos(FA)*exp(-dti/T1t));
+    // note that we do not have sin(FA) here - we actually estiamte the M0 at the flip angle used for the readout!
+  }
 
-    // loop over tis
-    //float ti;
-   if (LFAon) result.ReSize(tis.Nrows()*(nphases+1)*repeats);
-   else result.ReSize(tis.Nrows()*nphases*repeats);
+  // loop over tis
+  //float ti;
+  if (LFAon) result.ReSize(tis.Nrows()*(nphases+1)*repeats);
+  else result.ReSize(tis.Nrows()*nphases*repeats);
 
-   int nti=tis.Nrows();
-   double ti;
+  int nti=tis.Nrows();
+  double ti;
 
-    for (int ph=1; ph<=nphases; ph++) {
-      for (int it=1; it<=tis.Nrows(); it++) {
-	for (int rpt=1; rpt<=repeats; rpt++)
-	  {
-	    ti = tis(it) + slicedt*coord_z; //account here for an increase in delay between slices
-	    result( (ph-1)*(nti*repeats) + (it-1)*repeats+rpt ) = M0tp*(1-A*exp(-ti/T1tp));
-	  }
+  for (int ph=1; ph<=nphases; ph++) {
+    for (int it=1; it<=tis.Nrows(); it++) {
+	    for (int rpt=1; rpt<=repeats; rpt++) {
+        ti = tis(it) + slicedt*coord_z; //account here for an increase in delay between slices
+        result( (ph-1)*(nti*repeats) + (it-1)*repeats+rpt ) = M0tp*(1-A*exp(-ti/T1tp));
       }
     }
-    if (LFAon) {
-      int ph=nphases+1;
-      T1tp = 1/( 1/T1t - log(cos(lFA))/dti );
-      M0tp = M0t*(1 - exp(-dti/T1t) )/(1 - cos(lFA)*exp(-dti/T1t));
-      for (int it=1; it<=tis.Nrows(); it++) {
-	for (int rpt=1; rpt<=repeats; rpt++)
-	  {
-	    ti = tis(it) + slicedt*coord_z; //account here for an increase in delay between slices
-	    result( (ph-1)*(nti*repeats) + (it-1)*repeats+rpt ) = M0tp*sin(lFA)/sin(FA)*(1-A*exp(-tis(it)/T1tp));
-	    //note the sin(LFA)/sin(FA) term since the M0 we estimate is actually MOt*sin(FA)
-	  }
-      }
-    }
-
+  }
     
+  if (LFAon) {
+    int ph=nphases+1;
+    T1tp = 1/( 1/T1t - log(cos(lFA))/dti );
+    M0tp = M0t*(1 - exp(-dti/T1t) )/(1 - cos(lFA)*exp(-dti/T1t));
+    for (int it=1; it<=tis.Nrows(); it++) {
+	    for (int rpt=1; rpt<=repeats; rpt++) {
+        ti = tis(it) + slicedt*coord_z; //account here for an increase in delay between slices
+	      result( (ph-1)*(nti*repeats) + (it-1)*repeats+rpt ) = M0tp*sin(lFA)/sin(FA)*(1-A*exp(-tis(it)/T1tp));
+	      //note the sin(LFA)/sin(FA) term since the M0 we estimate is actually MOt*sin(FA)
+	    }
+    }
+  }
 
   return;
 }
@@ -209,6 +207,7 @@ SatrecovFwdModel::SatrecovFwdModel(ArgsType& args)
       t1 = convertTo<double>(args.ReadWithDefault("t1","1.3"));
       nphases = convertTo<int>(args.ReadWithDefault("phases","1"));
       slicedt = convertTo<double>(args.ReadWithDefault("slicedt","0.0")); // increase in TI per slice
+      slice_shifting_factor = convertTo<int>(args.ReadWithDefault("slice_shift", "1")); // slice shifting factor
 
       // with a look locker readout
       FAnom = convertTo<double>(args.ReadWithDefault("FA","0"));
@@ -239,7 +238,9 @@ SatrecovFwdModel::SatrecovFwdModel(ArgsType& args)
 
 	}
       timax = tis.Maximum(); //dtermine the final TI
-      dti = tis(2)-tis(1); //assuming even sampling!! - this only applies to LL acquisitions
+      dti = ( tis(2)-tis(1) ) * slice_shifting_factor; //assuming even sampling!! - this only applies to LL acquisitions
+
+      //cout << dti << endl;
       
       // need to set the voxel coordinates to a deafult of 0 (for the times we call the model before we start handling data)
       coord_x = 0;
