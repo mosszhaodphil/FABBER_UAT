@@ -307,7 +307,8 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
   if (infertau && infertiss) { 
     tauset=paramcpy(tau_index());
     //tauset = (dti * 0.5) * (tanh(tauset) + 1);
-    tauset = 0.1 * tanh(tauset) + dti - 0.1;
+    //tauset = 0.1 * tanh(tauset) + dti - 0.1;
+    tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
     //cout << "tanh function used" << endl;
     //tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
     //cout << tauset << endl;
@@ -472,8 +473,6 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
   if (disptype=="none") {
     /* Added by Moss */ 
     if (simulation) {
-      // Warning message
-      cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded values!!!!!" << endl;
       T_1b = 1.60;
       T_1 = 1.3;
       T_1app = T_1;
@@ -642,6 +641,10 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       // simulation mode, put everything in fixed manner
       simulation = false;
       simulation = args.ReadBool("simulation_mode");
+      if(simulation) {
+        // Warning message
+        cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded values!!!!!" << endl;
+      }
 
       // specify command line parameters here
       //dispersion model
@@ -761,6 +764,9 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       bolus_order &= tmp;
     }
     n_bolus = bolus_order.Nrows();
+
+    // Lowest limit of bolus duration. Default value is 0.4s
+    tau_lowest = convertTo<double>(args.ReadWithDefault("tau_lowest", "0.4"));
 
 
     float fadeg = convertTo<double>(args.ReadWithDefault("fa","30"));
