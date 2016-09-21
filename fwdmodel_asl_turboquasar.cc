@@ -33,7 +33,6 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
     // Set priors
     // Tissue bolus perfusion
     if (infertiss) {
-          cout << "blablacar" << endl;
       prior.means(tiss_index()) = 0;
       precisions(tiss_index(),tiss_index()) = 1e-12; 
      
@@ -473,6 +472,8 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
   if (disptype=="none") {
     /* Added by Moss */ 
     if (simulation) {
+      // Warning message
+      cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded values!!!!!" << endl;
       T_1b = 1.60;
       T_1 = 1.3;
       T_1app = T_1;
@@ -655,9 +656,6 @@ TurboQuasarFwdModel::TurboQuasarFwdModel(ArgsType& args)
       //delta_bolus = convertTo<double>(args.ReadWithDefault("delta_bolus", "0.6")); // time duration between each successive bolus
       slice_shifting_factor = convertTo<int>(args.ReadWithDefault("slice_shift", "1")); // slice shifting factor, default is 1 meaning no increaing sampling rate
       //delta_ti_gap_factor = convertTo<int>(args.ReadWithDefault("bolus_skip", "1")); // Number of boluses to skip, default is 1 meaning one bolus duration is skipped between each successive bolus
-
-      // Warning message
-      cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded values!!!!!" << endl;
       
       infertau = args.ReadBool("infertau"); // infer on bolus length?
       infert1 = args.ReadBool("infert1"); //infer on T1 values?
